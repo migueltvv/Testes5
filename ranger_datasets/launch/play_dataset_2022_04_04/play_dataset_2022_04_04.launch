@@ -1,0 +1,191 @@
+<?xml version="1.0"?>
+<launch>
+
+
+	<!--Bag play options -->
+	<arg name="bag_start_time" default="110" />
+	<arg name="bag_play_rate" default="1" />  <!--If your PC is running slow, you can try lowering the dataset rate e.g. "0.5"-->
+
+	<!-- GLOBAL TIME PARAM FOR ROSBAG PLAY  -->
+	<param name="use_sim_time" value="true" />
+
+	<!-- PLAY DATASET -->
+	<node pkg="rosbag" type="play" name="rosbag_play" args="
+	$(find ranger_datasets)/dataset/2022_04_04_ranger_trial1.bag
+	--clock --pause -r $(arg bag_play_rate) --start=$(arg bag_start_time)" output="screen"/>
+
+
+    <!-- Front Ranger dynamic tf  -->
+    <node pkg="ranger_datasets" type="republisher_odom_tf" name="robot_tool_republisher_odom_tf"> <!--output="screen"-->
+        <param name="input_posEndEffector"   type="string"  value="endEffector_odom"/>  
+        <param name="child_frame_id"         type="string"  value="end_effector_link"/>  
+        <param name="frame_id"               type="string"  value="bobcat_base"/>  		
+    </node>
+    
+	<!--display the ranger (the dataset has an initial /tf_static with all the base tfs-->
+    <include file="$(find ranger_datasets)/launch/play_dataset_2022_04_04/static_tfs_dataset_2022_04_04.launch"/>	
+
+
+    <!-- GET THE BACK LIDAR DATA POINTCLOUD  -->
+    <node pkg="lslidar_c16_decoder" type="lslidar_c16_decoder_node" name="back_lslidar_c16_decoder_node"> <!--output="screen"-->
+	    <param name="child_frame_id" value="back_lslidar"/>
+	    <param name="point_num" value="2000"/>
+	    <param name="channel_num" value="8"/>
+	    <param name="angle_disable_min" value="0"/>
+	    <param name="angle_disable_max" value="0"/>
+	    <param name="min_range" value="0.15"/>
+	    <param name="max_range" value="150.0"/>
+	    <param name="frequency" value="10.0"/>
+	    <param name="publish_point_cloud" value="true"/>
+	    <param name="publish_channels" value="false"/>
+	    <param name="use_gps_ts" value="false"/>
+
+	    <!--output topic remapping for the greater scheme of things -->
+	    <remap from="scan"           to="back_lslidar_scan"/>
+	    <remap from="scan_channel"   to="back_lslidar_scan_channel"/>
+	    <remap from="layer_num"      to="back_lslidar_layer_num"/>
+	    <remap from="lslidar_packet" to="back_lslidar_packet"/>
+	    <remap from="lslidar_sweep"  to="back_lslidar_sweep"/>
+	    <remap from="lslidar_point_cloud" to="back_lslidar_point_cloud"/>
+    </node>
+
+    <!-- GET THE FRONT LIDAR DATA POINTCLOUD  -->
+    <node pkg="lslidar_c16_decoder" type="lslidar_c16_decoder_node" name="front_lslidar_c16_decoder_node"> <!--output="screen"-->
+	    <param name="child_frame_id" value="front_lslidar"/>
+	    <param name="point_num" value="2000"/>
+	    <param name="channel_num" value="8"/>
+	    <param name="angle_disable_min" value="0"/>
+	    <param name="angle_disable_max" value="0"/>
+	    <param name="min_range" value="0.15"/>
+	    <param name="max_range" value="150.0"/>
+	    <param name="frequency" value="10.0"/>
+	    <param name="publish_point_cloud" value="true"/>
+	    <param name="publish_channels" value="false"/>
+	    <param name="use_gps_ts" value="false"/>
+
+	    <!--output topic remapping for the greater scheme of things -->
+	    <remap from="scan"           to="front_lslidar_scan"/>
+	    <remap from="scan_channel"   to="front_lslidar_scan_channel"/>
+	    <remap from="layer_num"      to="front_lslidar_layer_num"/>
+	    <remap from="lslidar_packet" to="front_lslidar_packet"/>  
+	    <remap from="lslidar_sweep"  to="front_lslidar_sweep"/>
+	    <remap from="lslidar_point_cloud" to="front_lslidar_point_cloud"/>	    
+	</node>
+
+
+    <!-- launch rviz with custom profile-->
+    <node pkg="rviz" type="rviz" name="rviz" args="-d $(find ranger_datasets)/rviz/ranger_dataset_2022_04_04.rviz" output="screen"/>
+
+  <!-- Filter the robot structure on the back lslidar points with a "crop box" -->
+  <node pkg="nodelet" type="nodelet" name="pcl_manager" args="manager" output="screen" />
+
+  <node pkg="nodelet" type="nodelet" name="crop_box" args="load pcl/CropBox pcl_manager" output="screen">
+        <remap from="~input" to="back_lslidar_point_cloud" />
+        <remap from="~output" to="back_lslidar_point_cloud_filtered" />
+        <rosparam>
+              min_x: -2.5
+              max_x: 0.0
+              min_y: -1.0
+              max_y: 1.0
+              min_z: -1.25
+              max_z: 1.0
+              keep_organized: true
+              negative: true
+        </rosparam>
+   </node>
+
+  <!-- Filter the robot structure on the front lslidar points with a "crop box" -->
+  <node pkg="nodelet" type="nodelet" name="front_pcl_manager" args="manager" output="screen" />
+
+  <node pkg="nodelet" type="nodelet" name="front_crop_box" args="load pcl/CropBox front_pcl_manager" output="screen">
+        <remap from="~input" to="front_lslidar_point_cloud" />
+        <remap from="~output" to="front_lslidar_point_cloud_filtered" />
+        <rosparam>
+              min_x: -1.0
+              max_x: 2.0
+              min_y: -1.2
+              max_y: 1.2
+              min_z: -5.0
+              max_z: 5.0
+              keep_organized: true
+              negative: true
+        </rosparam>
+   </node>   
+
+ 
+   <!--Intel Top RealSense Colored PointCloud-->
+   <!--republish compressed images into raw images readable by the point_cloud_xyzrgb nodelet-->
+   <node pkg="image_transport" type="republish" name="camera_repub_image_rect_color" args="compressed in:=camera/color/image_raw raw out:=camera/color/image_raw"/>
+
+   <!-- Get RGBD registered Point Cloud from Intel -->
+   <node pkg="nodelet" type="nodelet" name="camera_colored_pcl" args="manager" output="screen" /> 
+ 
+   <node pkg="nodelet" type="nodelet" name="camera_points_xyzrgb" args="load depth_image_proc/point_cloud_xyzrgb camera_colored_pcl --no-bond"> 
+	    <remap from="rgb/camera_info" to="camera/color/camera_info" />   
+	    <remap from="rgb/image_rect_color" to="camera/color/image_raw"/> 
+	    <remap from="depth_registered/image_rect" to="camera/aligned_depth_to_color/image_raw"/>
+	    <remap from="depth_registered/points" to="camera/depth/color/points"/>
+	</node> 
+
+
+   <!--Framos tool RealSense Colored PointCloud-->
+   <!--republish compressed images into raw images readable by the point_cloud_xyzrgb nodelet-->
+   <node pkg="image_transport" type="republish" name="camera_front_tool_repub_image_rect_color" args="compressed in:=camera_front_tool/color/image_raw raw out:=camera_front_tool/color/image_raw"/>
+
+   <!-- Get RGBD registered Point Cloud from Intel -->
+   <node pkg="nodelet" type="nodelet" name="camera_front_tool_colored_pcl" args="manager" output="screen" /> 
+ 
+   <node pkg="nodelet" type="nodelet" name="camera_front_tool_points_xyzrgb" args="load depth_image_proc/point_cloud_xyzrgb camera_front_tool_colored_pcl --no-bond"> 
+	    <remap from="rgb/camera_info" to="camera_front_tool/color/camera_info" />   
+	    <remap from="rgb/image_rect_color" to="camera_front_tool/color/image_raw"/> 
+	    <remap from="depth_registered/image_rect" to="camera_front_tool/aligned_depth_to_color/image_raw"/>
+	    <remap from="depth_registered/points" to="camera_front_tool/depth/color/points"/>
+	</node>   	
+
+
+   <!--Framos tool RealSense Colored PointCloud-->
+   <!--republish compressed images into raw images readable by the point_cloud_xyzrgb nodelet-->
+   <node pkg="image_transport" type="republish" name="camera_back_center_repub_image_rect_color" args="compressed in:=camera_back_center/color/image_raw raw out:=camera_back_center/color/image_raw"/>
+
+   <!-- Get RGBD registered Point Cloud from Intel -->
+   <node pkg="nodelet" type="nodelet" name="camera_back_center_colored_pcl" args="manager" output="screen" /> 
+ 
+   <node pkg="nodelet" type="nodelet" name="camera_back_center_points_xyzrgb" args="load depth_image_proc/point_cloud_xyzrgb camera_back_center_colored_pcl --no-bond"> 
+	    <remap from="rgb/camera_info" to="camera_back_center/color/camera_info" />   
+	    <remap from="rgb/image_rect_color" to="camera_back_center/color/image_raw"/> 
+	    <remap from="depth_registered/image_rect" to="camera_back_center/aligned_depth_to_color/image_raw"/>
+	    <remap from="depth_registered/points" to="camera_back_center/depth/color/points"/>
+	</node> 
+
+
+       <!--Framos tool RealSense Colored PointCloud-->
+   <!--republish compressed images into raw images readable by the point_cloud_xyzrgb nodelet-->
+   <node pkg="image_transport" type="republish" name="camera_back_right_repub_image_rect_color" args="compressed in:=camera_back_right/color/image_raw raw out:=camera_back_right/color/image_raw"/>
+
+   <!-- Get RGBD registered Point Cloud from Intel -->
+   <node pkg="nodelet" type="nodelet" name="camera_back_right_colored_pcl" args="manager" output="screen" /> 
+ 
+   <node pkg="nodelet" type="nodelet" name="camera_back_right_points_xyzrgb" args="load depth_image_proc/point_cloud_xyzrgb camera_back_right_colored_pcl --no-bond"> 
+	    <remap from="rgb/camera_info" to="camera_back_right/color/camera_info" />   
+	    <remap from="rgb/image_rect_color" to="camera_back_right/color/image_raw"/> 
+	    <remap from="depth_registered/image_rect" to="camera_back_right/aligned_depth_to_color/image_raw"/>
+	    <remap from="depth_registered/points" to="camera_back_right/depth/color/points"/>
+	</node> 
+
+
+       <!--Framos tool RealSense Colored PointCloud-->
+   <!--republish compressed images into raw images readable by the point_cloud_xyzrgb nodelet-->
+   <node pkg="image_transport" type="republish" name="camera_back_left_repub_image_rect_color" args="compressed in:=camera_back_left/color/image_raw raw out:=camera_back_left/color/image_raw"/>
+
+   <!-- Get RGBD registered Point Cloud from Intel -->
+   <node pkg="nodelet" type="nodelet" name="camera_back_left_colored_pcl" args="manager" output="screen" /> 
+ 
+   <node pkg="nodelet" type="nodelet" name="camera_back_left_points_xyzrgb" args="load depth_image_proc/point_cloud_xyzrgb camera_back_left_colored_pcl --no-bond"> 
+	    <remap from="rgb/camera_info" to="camera_back_left/color/camera_info" />   
+	    <remap from="rgb/image_rect_color" to="camera_back_left/color/image_raw"/> 
+	    <remap from="depth_registered/image_rect" to="camera_back_left/aligned_depth_to_color/image_raw"/>
+	    <remap from="depth_registered/points" to="camera_back_left/depth/color/points"/>
+	</node> 
+
+
+</launch>

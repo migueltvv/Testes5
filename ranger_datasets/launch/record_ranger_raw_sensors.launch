@@ -1,0 +1,67 @@
+<?xml version="1.0"?>
+<launch>
+
+
+	<!-- RECORD DATASET (with infinite buffer and to a specific folder) -->
+	<node pkg="rosbag" type="record" name="rosbag_record" args="
+
+		/back_lslidar_packet
+		/front_lslidar_packet
+
+		/camera/accel/imu_info
+		/camera/gyro/imu_info
+		/camera/imu
+		/camera_tool/accel/imu_info
+		/camera_tool/gyro/imu_info
+		/camera_tool/imu
+		/imu_rion
+
+		/camera/color/camera_info
+		/camera/color/image_raw/compressed
+		/camera/aligned_depth_to_color/camera_info
+		/camera/aligned_depth_to_color/image_raw
+
+		/camera_back_center/color/camera_info
+		/camera_back_left/color/camera_info
+		/camera_back_right/color/camera_info
+		/camera_front_tool/color/camera_info
+
+		/camera_back_center/color/image_raw/compressed
+		/camera_back_left/color/image_raw/compressed
+		/camera_back_right/color/image_raw/compressed
+		/camera_front_tool/color/image_raw/compressed
+
+		/camera_back_center/aligned_depth_to_color/camera_info
+		/camera_back_left/aligned_depth_to_color/camera_info
+		/camera_back_right/aligned_depth_to_color/camera_info
+		/camera_front_tool/aligned_depth_to_color/camera_info
+
+		/camera_back_center/aligned_depth_to_color/image_raw
+		/camera_back_left/aligned_depth_to_color/image_raw
+		/camera_back_right/aligned_depth_to_color/image_raw
+		/camera_front_tool/aligned_depth_to_color/image_raw
+
+		/dalsa_camera_720p/camera_info
+		/dalsa_camera_720p/compressed
+
+		/flir_ax8/camera_info
+		/flir_ax8/compressed
+
+		/endEffector_odom
+
+		/gps_fix
+		/gps_time
+		/gps_vel
+
+		/Navtech/FilteredPointcloud
+		/Navtech/Polar/compressed
+		/Navtech/Cartesian1/compressed
+
+		-b 0 
+		--split --size=20480
+        -o $(env HOME)/" output="screen"/>
+
+    <!-- removed from recording script: /tf /tf_static /realsense/depth/color/points_throttle -->
+
+
+</launch>

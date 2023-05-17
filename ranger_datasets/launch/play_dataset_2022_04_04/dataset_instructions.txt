@@ -1,0 +1,46 @@
+================================= Dataset Remarks ===========================================
+
+- During the experiment it was performed 2 trials with 1 closed-loop lap, with diferent positions of the ranger front tool
+- Spread In the scenario you can find 5 April tags (17x17cm), with different IDs {0,2,3,4,5}
+- AprilTags were mapped with GPS coordinates, please check "2021_11_11_april_tags_groundtruth_survey" folder
+- The GPS RTK base station datum can be found "2021_11_11_gps_base_station_datum.txt"
+- Dynamic tf from camera_tool is not completly adjusted yet
+- Static tfs from camera_back_right/left is not completly adjusted yet
+- Radar pcl threshold was define to  
+- There are some data glitches during the experiment, please check rosbag_glitches.png
+
+
+================================= INSTALLATION INSTRUCTIONS =================================
+
+1) Download the sensor data datasets "2022_04_04_ranger_trial_X.zip" (2 trials) from:
+https://home.mycloud.com/action/share/ae53be9c-e989-4d5b-9ee5-39bcddff5e18
+
+
+2) Clone two packages to your ROS catkin workspace, by running the following commands:
+ cd ~/catkin_ws/src
+ git clone https://gitlab.ingeniarius.pt/ingeniarius_public/semfire/ranger/lslidar_c16.git
+ copy ranger_datasets rospackage
+
+
+3) Decompress the main dataset (21.5 GB) with the following comand in separated terminals :
+ "unzip 2022_04_04_ranger_trial1.zip -d ~/catkin_ws/src/ranger_datasets/dataset/"
+ "unzip 2022_04_04_ranger_trial2.zip -d ~/catkin_ws/src/ranger_datasets/dataset/"
+ 
+ Note: Leave the decompression running - it will take a long time - on the background and move on to steps 4-6).
+
+4) install the lslidar decoder pkg (to allow for LIDAR pointcloud visualization) dependencies with this command:
+sudo apt install ros-melodic-angles ros-melodic-pcl-ros ros-melodic-diagnostic-updater ros-melodic-eigen-conversions
+
+5) install the dataset runtime dependencies with this command:
+sudo apt install ros-melodic-image-transport ros-melodic-image-transport-plugins ros-melodic-depth-image-proc ros-melodic-tf2-tools
+
+6) Now compile your ROS workspace with these commands:
+ cd ~/catkin_ws
+ catkin_make or catkin build
+
+7) after 3) is finished, please verify that you placed *all the downloaded datasets* inside the folder "ranger_datasets/dataset"
+
+8) run the dataset with the command:
+  "roslaunch ranger_datasets play_dataset_2022_04_04.launch" (for publishing sensor raw data)
+  Note: If your PC is running slow, you can try lowering the dataset rate e.g. "0.5"
+
